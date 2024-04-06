@@ -1,10 +1,14 @@
 from scipy.spatial import distance
 from imutils import face_utils
+from pygame import mixer
 import imutils
 import dlib
 import cv2
 import tkinter as tk
-from pygame import mixer
+from PIL import Image, ImageTk
+
+mixer.init()
+mixer.music.load("music.wav")
 
 def eye_aspect_ratio(eye):
     A = distance.euclidean(eye[1], eye[5])
@@ -20,27 +24,24 @@ predict = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_68_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_68_IDXS["right_eye"]
+cap = cv2.VideoCapture(0)
+flag = 0
+is_detecting = False
 
-# Initialize GUI
+# Create GUI window
 root = tk.Tk()
-root.title("Drowsiness Detection")
-root.geometry("400x200")
+root.title("Driver Drowsiness Detection")
+root.geometry("600x500")
 
-# Create label
-label = tk.Label(root, text="Drowsiness Detection System", font=("Arial", 14))
-label.pack(pady=10)
+# Create canvas to display video feed
+canvas = tk.Canvas(root, width=500, height=400)
+canvas.pack()
 
-# Initialize mixer
-mixer.init()
-mixer.music.load("music.wav")  # Replace "alert.wav" with the path to your alert sound file
-
-# Function to start detection
-def start_detection():
-    cap = cv2.VideoCapture(0)
-    flag = 0
-    while True:
+def detect_drowsiness():
+    global flag, is_detecting
+    if is_detecting:
         ret, frame = cap.read()
-        frame = imutils.resize(frame, width=450)
+        frame = imutils.resize(frame, width=500)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         subjects = detect(gray, 0)
         for subject in subjects:
@@ -60,19 +61,51 @@ def start_detection():
                 if flag >= frame_check:
                     cv2.putText(frame, "****************ALERT!****************", (10, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    cv2.putText(frame, "****************ALERT!****************", (10, 325),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                     mixer.music.play()
-        else:
-            flag = 0
-        cv2.imshow("Frame", frame)
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
-            break
-    cv2.destroyAllWindows()
-    cap.release()
+            else:
+                flag = 0
 
-# Create button to start detection
+        # Convert OpenCV image to Tkinter format
+        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(img)
+        img = ImageTk.PhotoImage(image=img)
+
+        # Update canvas with new image
+        canvas.img = img
+        canvas.create_image(0, 0, anchor=tk.NW, image=img)
+
+    # Call detect_drowsiness function recursively
+    if is_detecting:
+        canvas.after(10, detect_drowsiness)
+
+def start_detection():
+    global is_detecting
+    is_detecting = True
+    detect_drowsiness()
+
+def stop_detection():
+    global is_detecting
+    is_detecting = False
+
+# Create Start and Stop buttons
 start_button = tk.Button(root, text="Start Detection", command=start_detection)
-start_button.pack()
+start_button.pack(pady=10)
+
+stop_button = tk.Button(root, text="Stop Detection", command=stop_detection)
+stop_button.pack(pady=10)
+
+# Exit GUI window when 'q' key is pressed
+def exit_app(event):
+    if event.char == 'q':
+        root.destroy()
+
+root.bind('<Key>', exit_app)
 
 # Run the GUI main loop
 root.mainloop()
+
+# Release video capture and close all OpenCV windows
+cap.release()
+cv2.destroyAllWindows()
