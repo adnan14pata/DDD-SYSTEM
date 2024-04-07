@@ -6,6 +6,7 @@ import dlib
 import cv2
 import tkinter as tk
 from PIL import Image, ImageTk
+from twilio.rest import Client
 
 mixer.init()
 mixer.music.load("music.wav")
@@ -28,17 +29,30 @@ cap = cv2.VideoCapture(0)
 flag = 0
 is_detecting = False
 
+# Twilio credentials
+account_sid = "ACd7bd4788a5306c92c0c0b852a50f0609"
+auth_token = "32f230b53385bc7f21ac2df3a7f33cb4"
+client = Client(account_sid, auth_token)
+
 # Create GUI window
 root = tk.Tk()
 root.title("Driver Drowsiness Detection")
 root.geometry("600x500")
 
 # Create canvas to display video feed
-canvas = tk.Canvas(root, width=500, height=400)
-canvas.pack()
+canvas = tk.Canvas(root, width=500, height=400, bg="black")
+canvas.pack(pady=20)
+
+def send_alert_message():
+    message = client.messages.create(
+        body="ALERT: Drowsiness detected! Please take a break.",
+        from_="+12513062866",
+        to="+919834121604"
+    )
+    print("Alert message sent:", message.sid)
 
 def detect_drowsiness():
-    global flag, is_detecting
+    global flag
     if is_detecting:
         ret, frame = cap.read()
         frame = imutils.resize(frame, width=500)
@@ -64,36 +78,36 @@ def detect_drowsiness():
                     cv2.putText(frame, "****************ALERT!****************", (10, 325),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                     mixer.music.play()
+                    send_alert_message()
             else:
                 flag = 0
 
-        # Convert OpenCV image to Tkinter format
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(img)
         img = ImageTk.PhotoImage(image=img)
 
-        # Update canvas with new image
         canvas.img = img
         canvas.create_image(0, 0, anchor=tk.NW, image=img)
 
-    # Call detect_drowsiness function recursively
-    if is_detecting:
-        canvas.after(10, detect_drowsiness)
+        if is_detecting:
+            canvas.after(10, detect_drowsiness)
 
 def start_detection():
     global is_detecting
-    is_detecting = True
-    detect_drowsiness()
+    if not is_detecting:
+        is_detecting = True
+        detect_drowsiness()
 
 def stop_detection():
     global is_detecting
-    is_detecting = False
+    if is_detecting:
+        is_detecting = False
 
 # Create Start and Stop buttons
-start_button = tk.Button(root, text="Start Detection", command=start_detection)
+start_button = tk.Button(root, text="Start Detection", command=start_detection, bg="green", fg="white", font=("Helvetica", 12, "bold"))
 start_button.pack(pady=10)
 
-stop_button = tk.Button(root, text="Stop Detection", command=stop_detection)
+stop_button = tk.Button(root, text="Stop Detection", command=stop_detection, bg="red", fg="white", font=("Helvetica", 12, "bold"))
 stop_button.pack(pady=10)
 
 # Exit GUI window when 'q' key is pressed
