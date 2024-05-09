@@ -7,6 +7,7 @@ from imutils import face_utils
 import imutils
 from pygame import mixer
 from twilio.rest import Client
+import json
 
 # Initialize Pygame mixer for sound effects
 mixer.init()
@@ -25,8 +26,10 @@ is_detecting = False
 alert_sent = False
 
 # Twilio credentials
-account_sid = "ACd7bd4788a5306c92c0c0b852a50f0609"
-auth_token = "32f230b53385bc7f21ac2df3a7f33cb4"
+with open("config.json") as config_file:
+    config = json.load(config_file)
+account_sid =config["ACCOUNT_SID"] 
+auth_token =config["AUTH_TOKEN"]
 client = Client(account_sid, auth_token)
 
 # Function to start drowsiness detection
@@ -50,8 +53,8 @@ def send_alert_message():
     if not alert_sent:  # Send alert message only if it hasn't been sent already
         message = client.messages.create(
             body="ALERT: Drowsiness detected. Immediate action required!",
-            from_="+12513062866",
-            to="+919834121604"
+            from_=config["FROM_NUM"],
+            to= config["TO_NUM"] 
         )
         print("Alert message sent:", message.sid)
         alert_sent = True  # Set flag to indicate that alert message has been sent
@@ -60,8 +63,8 @@ def send_alert_message():
 def send_sos_message():
     message = client.messages.create(
         body="SOS! Immediate assistance needed. Location: (18°25'13.7\"N 73°54'18.0\"E)",
-        from_="+12513062866",
-        to="+919834121604"
+        from_=config["FROM_NUM"],
+        to=config["TO_NUM"] 
     )
     print("SOS message sent:", message.sid)
 
